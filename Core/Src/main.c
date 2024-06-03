@@ -39,7 +39,7 @@ typedef enum{
   LIGHT_FULL
 }light_state_t;
 
-light_state_t curr_state = LIGHT_OFF;
+light_state_t curr_state;
 
 /* USER CODE END PTD */
 
@@ -74,6 +74,7 @@ static void MX_TIM3_Init(void);
 /* USER CODE BEGIN PFP */
 void light_state_machine(uint8_t event);
 void light_change_intensity(uint32_t value);
+void run_entry_action(light_state_t state);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -87,6 +88,11 @@ int _read(int file, char *ptr, int len){
 int _write(int file, char *ptr, int len){
   HAL_UART_Transmit(&huart2, (uint8_t*)ptr, len, 100);
   return len;
+}
+
+void light_init(void){
+  curr_state = LIGHT_OFF;
+  run_entry_action(LIGHT_OFF);
 }
 /* USER CODE END 0 */
 
@@ -320,16 +326,18 @@ static void MX_GPIO_Init(void)
  * - State handler approach
  */
 void light_state_machine(uint8_t event){
+  light_state_t prev_state;
+
+  prev_state = curr_state;
+
   switch(curr_state){
     case LIGHT_OFF:
       switch(event){
 	case ON:{
-	  light_change_intensity(LIGHT_BRIGHT_DIM);
 	  curr_state = LIGHT_DIM;
 	  break;
 	}
 	case OFF:{
-	  light_change_intensity(LIGHT_BRIGHT_OFF);
 	  curr_state = LIGHT_OFF;
 	  break;
 	}
@@ -338,12 +346,10 @@ void light_state_machine(uint8_t event){
     case LIGHT_DIM:
       switch(event){
 	case ON:{
-	  light_change_intensity(LIGHT_BRIGHT_MED);
 	  curr_state = LIGHT_MEDIUM;
 	  break;
 	}
 	case OFF:{
-	  light_change_intensity(LIGHT_BRIGHT_OFF);
 	  curr_state = LIGHT_OFF;
 	  break;
 	}
@@ -352,12 +358,10 @@ void light_state_machine(uint8_t event){
     case LIGHT_MEDIUM:
       switch(event){
 	case ON:{
-	  light_change_intensity(LIGHT_BRIGHT_FULL);
 	  curr_state = LIGHT_FULL;
 	  break;
 	}
 	case OFF:{
-	  light_change_intensity(LIGHT_BRIGHT_OFF);
 	  curr_state = LIGHT_OFF;
 	  break;
 	}
@@ -367,25 +371,44 @@ void light_state_machine(uint8_t event){
     case LIGHT_FULL:
       switch(event){
 	case ON:{
-	  light_change_intensity(LIGHT_BRIGHT_DIM);
 	  curr_state = LIGHT_DIM;
 	  break;
 	}
 	case OFF:{
-	  light_change_intensity(LIGHT_BRIGHT_OFF);
 	  curr_state = LIGHT_OFF;
 	  break;
 	}
       }
       break;
-
   }
+  /* If state transition occurred due to event,
+   * run entry action */
+  if (prev_state != curr_state)
+    run_entry_action(curr_state);
 
 }
 
 void light_change_intensity(uint32_t value){
   __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, value);
 }
+
+void run_entry_action(light_state_t state){
+  switch(state){
+    case LIGHT_OFF:
+      light_change_intensity(LIGHT_BRIGHT_OFF);
+      break;
+    case LIGHT_DIM:
+      light_change_intensity(LIGHT_BRIGHT_DIM);
+      break;
+    case LIGHT_MEDIUM:
+      light_change_intensity(LIGHT_BRIGHT_MED);
+      break;
+    case LIGHT_FULL:
+      light_change_intensity(LIGHT_BRIGHT_FULL);
+      break;
+  }
+}
+
 /* USER CODE END 4 */
 
 /**
